@@ -59,7 +59,7 @@ installLogglyConfForFile()
 
 	#checks if the file has proper read permission
 	checkFileReadPermission
-	
+
 	#check if the alias is already taken
 	checkIfFileAliasExist
 
@@ -71,12 +71,12 @@ installLogglyConfForFile()
 
 	#restart rsyslog
 	restartRsyslog
-	
+
 	#check for the log file size
 	checkLogFileSize $LOGGLY_FILE_TO_MONITOR
 
 	#verify if the file logs made it to loggly
-	checkIfFileLogsMadeToLoggly
+	#checkIfFileLogsMadeToLoggly
 
 	#log success message
 	logMsgToConfigSysLog "SUCCESS" "SUCCESS: Successfully configured to send $LOGGLY_FILE_TO_MONITOR logs via Loggly."
@@ -101,10 +101,10 @@ removeLogglyConfForFile()
 
 	#remove 21<file-alias>.conf file
 	remove21ConfFile
-	
+
 	#restart rsyslog
 	restartRsyslog
-	
+
 	#log success message
 	logMsgToConfigSysLog "INFO" "INFO: Rollback completed."
 }
@@ -193,12 +193,12 @@ checkLogFileSize()
 }
 
 
-#checks the input file has proper read permissions 
+#checks the input file has proper read permissions
 checkFileReadPermission()
 {
-	
+
 	LINUX_DIST_IN_LOWER_CASE=$(echo $LINUX_DIST | tr "[:upper:]" "[:lower:]")
-	
+
 	#no need to check read permissions with RedHat and CentOS as they also work with ---------- (000)permissions
 	case "$LINUX_DIST_IN_LOWER_CASE" in
 		*"redhat"* )
@@ -209,12 +209,12 @@ checkFileReadPermission()
 			FILE_PERMISSIONS=$(ls -l $LOGGLY_FILE_TO_MONITOR)
 			#checking if the file has read permission for others
 			PERMISSION_READ_OTHERS=${FILE_PERMISSIONS:7:1}
-			if [ $PERMISSION_READ_OTHERS != r ]; then 
+			if [ $PERMISSION_READ_OTHERS != r ]; then
 				logMsgToConfigSysLog "WARN" "WARN: $LOGGLY_FILE_TO_MONITOR does not have proper read permissions. Verification step may fail."
 			fi
 		;;
 	esac
-	
+
 }
 
 #function to write the contents of syslog config file
@@ -320,7 +320,7 @@ remove21ConfFile()
 		fi
 	else
 		logMsgToConfigSysLog "WARN" "WARN: $FILE_SYSLOG_CONFFILE file was not found."
-	fi	
+	fi
 }
 
 #display usage syntax
