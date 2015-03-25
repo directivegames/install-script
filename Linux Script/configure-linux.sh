@@ -82,7 +82,7 @@ IS_INVOKED=
 LINUX_ENV_VALIDATED="false"
 
 #this variable will inform if verification needs to be performed
-LINUX_DO_VERIFICATION="true"
+LINUX_DO_VERIFICATION="false"
 
 ##########  Variable Declarations - End  ##########
 
@@ -150,7 +150,7 @@ installLogglyConf()
 	if [ "$IS_INVOKED" = "" ]; then
 		logMsgToConfigSysLog "SUCCESS" "SUCCESS: Linux system successfully configured to send logs via Loggly."
 	fi
-	
+
 }
 
 #remove loggly configuration from Linux system
@@ -192,9 +192,9 @@ checkIfUserHasRootPrivileges()
 checkIfSupportedOS()
 {
 	getOs
-	
+
 	LINUX_DIST_IN_LOWER_CASE=$(echo $LINUX_DIST | tr "[:upper:]" "[:lower:]")
-	
+
 	case "$LINUX_DIST_IN_LOWER_CASE" in
 		*"ubuntu"* )
 		echo "INFO: Operating system is Ubuntu."
@@ -221,7 +221,7 @@ checkIfSupportedOS()
 				[Yy]* )
 				break;;
 				[Nn]* )
-				exit 1	
+				exit 1
 				;;
 				* ) echo "Please answer yes or no.";;
 			esac
@@ -290,7 +290,7 @@ checkIfLogglyServersAccessible()
 		logMsgToConfigSysLog "ERROR" "ERROR: This is not a recognized subdomain. Please ask the account owner for the subdomain they signed up with."
 		exit 1
 	fi
-	
+
 	echo "INFO: Checking if Gen2 account."
 	if [ $(curl -s --head  --request GET $LOGGLY_ACCOUNT_URL/apiv2/customer | grep "404 NOT FOUND" | wc -l) == 1 ]; then
 		logMsgToConfigSysLog "ERROR" "ERROR: This scripts need a Gen2 account. Please contact Loggly support."
@@ -330,7 +330,7 @@ getAuthToken()
 		tokenstr=${tokenstr#*\"}
 
 		LOGGLY_AUTH_TOKEN=$tokenstr
-		
+
 		logMsgToConfigSysLog "INFO" "INFO: Retrieved authentication token: $LOGGLY_AUTH_TOKEN"
 	fi
 }
@@ -427,8 +427,8 @@ checkAuthTokenAndWriteContents()
 checkIfConfigurationChanged()
 {
 	ASK_FOR_VERIFICATION="false"
-	
-	#strings to be checked which should be present in the existing 22-loggly.conf. 
+
+	#strings to be checked which should be present in the existing 22-loggly.conf.
 	#If these strings are not same then a warning message will be shown to user to update the 22-loggly.conf file
 	STR_TO_BE_CHECKED[0]="\$template LogglyFormat,\"<%pri%>%protocol-version% %timestamp:::date-rfc3339% %HOSTNAME% %app-name% %procid% %msgid% [$LOGGLY_AUTH_TOKEN@$LOGGLY_DISTRIBUTION_ID] %msg%\""
 	STR_TO_BE_CHECKED[1]="*.*             @@$LOGS_01_HOST:$LOGGLY_SYSLOG_PORT;LogglyFormat"
@@ -440,10 +440,10 @@ checkIfConfigurationChanged()
 			break;
 		fi
 	done
-	
+
 	if [ "$ASK_FOR_VERIFICATION" == "true" ]; then
 		logMsgToConfigSysLog "WARN" "WARN: Loggly rsyslog file /etc/rsyslog.d/22-loggly.conf content has changed."
-		while true; 
+		while true;
 		do
 			read -p "Do you wish to override $LOGGLY_RSYSLOG_CONFFILE and re-verify configuration? (yes/no)" yn
 			case $yn in
@@ -462,7 +462,7 @@ checkIfConfigurationChanged()
 	else
 		LINUX_DO_VERIFICATION="false"
 	fi
-	
+
 }
 
 #write the contents to 22-loggly.conf file
@@ -642,9 +642,9 @@ sendPayloadToConfigSysLog()
 searchAndFetch()
 {
 	url=$2
-	
+
 	result=$(wget -qO- /dev/null --user "$LOGGLY_USERNAME" --password "$LOGGLY_PASSWORD" "$url")
-	
+
 	if [ -z "$result" ]; then
 		logMsgToConfigSysLog "ERROR" "ERROR: Please check your network/firewall settings & ensure Loggly subdomain, username and password is specified correctly."
 		exit 1
@@ -663,7 +663,7 @@ searchAndFetch()
 	eval $1="'$count'"
 	if [ "$count" -gt 0 ]; then
 		timestamp=$(echo "$result" | grep timestamp)
-	fi	
+	fi
 }
 
 #get password in the form of asterisk
