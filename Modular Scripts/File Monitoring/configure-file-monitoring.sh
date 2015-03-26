@@ -48,6 +48,8 @@ FILE_TO_MONITOR=
 IS_DIRECTORY=
 
 IS_WILDCARD=
+
+VERIFY_LOG_SENT="false"
 ##########  Variable Declarations - End  ##########
 
 # executing the script for loggly to install and configure syslog
@@ -61,46 +63,47 @@ installLogglyConfForFile()
 
     #checks if the file name contain spaces, if yes, the exit
     checkIfFileLocationContainSpaces
-    
+
     #check if the alias is already taken
     checkIfFileAliasExist
-    
+
     if [ "$IS_DIRECTORY" == "true" ]; then
-        
+
         configureDirectoryFileMonitoring
-    
+
     else
-                
+
         #check if file to monitor exists
         checkIfFileExist
-        
+
         #construct variables using filename and filealias
         constructFileVariables
-        
+
         #check for the log file size
         checkLogFileSize $LOGGLY_FILE_TO_MONITOR
-        
+
         #checks if the file has proper read permission
         checkFileReadPermission
-        
+
         #configure loggly for Linux
         installLogglyConf
-        
+
         #multiple tags
         addTagsInConfiguration
-        
+
         #create 21<file alias>.conf file
         write21ConfFileContents
-        
+
     fi
-    
+
     #restart rsyslog
     restartRsyslog
 
     #verify if the file logs made it to loggly
-    #checkIfFileLogsMadeToLoggly #this is disabled by directive to speed up AMI baking
-    
-    
+    if [ "$VERIFY_LOG_SENT" = "true" ]; then
+        checkIfFileLogsMadeToLoggly
+    fi
+
     if [ "$IS_FILE_MONITOR_SCRIPT_INVOKED" = "false" ]; then
             #log success message
             logMsgToConfigSysLog "SUCCESS" "SUCCESS: Successfully configured to send $LOGGLY_FILE_TO_MONITOR logs via Loggly."
@@ -126,12 +129,12 @@ removeLogglyConfForFile()
 
     #remove 21<file-alias>.conf file
     remove21ConfFile
-    
+
     #restart rsyslog
     restartRsyslog
-    
+
     removeStatFile
-    
+
     #log success message
     logMsgToConfigSysLog "INFO" "INFO: Rollback completed."
 }
@@ -171,7 +174,7 @@ configureDirectoryFileMonitoring()
             [Yy]* )
                 installLogglyConf
                 for file in $(find $LOGGLY_FILE_TO_MONITOR -name '*')
-                do  
+                do
                     configureFilesPresentInDirectory $file $FILE_ALIAS
                 done
                 break;;
@@ -187,7 +190,7 @@ configureDirectoryFileMonitoring()
                 [Yy]* )
                     doCronInstallation
                     break;;
-                [Nn]* ) 
+                [Nn]* )
                     logMsgToConfigSysLog "INFO" "INFO: Skipping Cron installation."
                     break;;
                 * ) echo "Please answer yes or no.";;
@@ -196,7 +199,7 @@ configureDirectoryFileMonitoring()
     else
         installLogglyConf
         for file in $(find $LOGGLY_FILE_TO_MONITOR -name '*')
-        do  
+        do
             configureFilesPresentInDirectory $file $FILE_ALIAS
         done
         if [[ ! -f "/root/.loggly/file-monitoring-cron-$FILE_ALIAS.sh" ]]; then
@@ -212,7 +215,7 @@ configureFilesPresentInDirectory()
     fileNameWithExt=${1##*/}
     uniqueFileName=$(echo "$fileNameWithExt" | tr . _)
     var=$(file $FILE_TO_MONITOR)
-    
+
     #checking if it is a text file otherwise ignore it
     #it may be possible that the "text" may contain some uppercase letters like "Text"
     var=$(echo $var | tr "[:upper:]" "[:lower:]")
@@ -324,9 +327,9 @@ checkLogFileSize()
 }
 
 
-#checks the input file has proper read permissions 
+#checks the input file has proper read permissions
 checkFileReadPermission()
-{   
+{
     LINUX_DIST_IN_LOWER_CASE=$(echo $LINUX_DIST | tr "[:upper:]" "[:lower:]")
     #no need to check read permissions with RedHat and CentOS as they also work with ---------- (000)permissions
     case "$LINUX_DIST_IN_LOWER_CASE" in
@@ -338,7 +341,7 @@ checkFileReadPermission()
             FILE_PERMISSIONS=$(ls -l $LOGGLY_FILE_TO_MONITOR)
             #checking if the file has read permission for others
             PERMISSION_READ_OTHERS=${FILE_PERMISSIONS:7:1}
-            if [[ $PERMISSION_READ_OTHERS != r ]]; then 
+            if [[ $PERMISSION_READ_OTHERS != r ]]; then
                 logMsgToConfigSysLog "WARN" "WARN: $LOGGLY_FILE_TO_MONITOR does not have proper read permissions. Verification step may fail."
             fi
         ;;
@@ -356,7 +359,7 @@ addTagsInConfiguration()
 }
 
 doCronInstallation()
-{   
+{
     if [[ ! -d "/root/.loggly" ]]; then
         mkdir /root/.loggly
     fi
@@ -389,10 +392,10 @@ EOIPFW
         echo "$EXISTING_CRONS" >> $CRON_FILE
         ;;
     esac
-    
+
     echo "$CRON_JOB_TO_MONITOR_FILES" >> $CRON_FILE
     sudo crontab $CRON_FILE
-    sudo rm -fr $CRON_FILE  
+    sudo rm -fr $CRON_FILE
 }
 
 #function to write the contents of syslog config file
@@ -411,7 +414,7 @@ write21ConfFileContents()
         imfileStr+="\$PrivDropToGroup adm
         "
     fi
-    
+
     imfileStr+="
     # File access file:
     \$InputFileName $FILE_TO_MONITOR
@@ -487,11 +490,11 @@ checkIfLogsAreParsedInLoggly()
     do
         TAG_PARSER="$TAG_PARSER%20tag%3A$i "
     done
-    
+
     queryParam="syslog.appName%3A$LOGGLY_FILE_TO_MONITOR_ALIAS$TAG_PARSER&from=-15m&until=now&size=1"
     queryUrl="$LOGGLY_ACCOUNT_URL/apiv2/search?q=$queryParam"
     searchAndFetch fileInitialLogCount "$queryUrl"
-    if [ "$fileInitialLogCount" -gt 0 ]; then  
+    if [ "$fileInitialLogCount" -gt 0 ]; then
         logMsgToConfigSysLog "INFO" "INFO: File logs successfully parsed in Loggly!"
     else
         logMsgToConfigSysLog "WARN" "WARN: We received your logs but they do not appear to use one of our automatically parsed formats. You can still do full text search and counts on these logs, but you won't be able to use our field explorer. Please consider switching to one of our automated formats https://www.loggly.com/docs/automated-parsing/"
@@ -519,21 +522,21 @@ remove21ConfFile()
         fi
     else
         logMsgToConfigSysLog "WARN" "WARN: $FILE_SYSLOG_CONFFILE file was not found."
-    fi  
+    fi
 }
 
 deleteFileFromCrontab()
-{   
+{
     if [ -f "/root/.loggly/file-monitoring-cron-$FILE_ALIAS.sh" ];then
 
         logMsgToConfigSysLog "INFO" "INFO: Deleting sync Cron."
-    
+
         #delete cron
         sudo crontab -l | grep -v  "file-monitoring-cron-$FILE_ALIAS.sh" | crontab -
-    
+
         #delete cron script
         sudo rm -f /root/.loggly/file-monitoring-cron-$FILE_ALIAS.sh
-    
+
     fi
 
 }
@@ -547,7 +550,7 @@ removeStatFile()
 usage()
 {
 cat << EOF
-usage: configure-file-monitoring [-a loggly auth account or subdomain] [-t loggly token (optional)] [-u username] [-p password (optional)] [-f filename] [-tag filetag1,filetag2 (optional)] [-l filealias] [-s suppress prompts {optional)]
+usage: configure-file-monitoring [-a loggly auth account or subdomain] [-t loggly token (optional)] [-u username] [-p password (optional)] [-f filename] [-tag filetag1,filetag2 (optional)] [-l filealias] [-s suppress prompts {optional)] [-v verify log sent to loggly {optional)]
 usage: configure-file-monitoring [-a loggly auth account or subdomain] [-r to rollback] [-l filealias]
 usage: configure-file-monitoring [-h for help]
 EOF
@@ -580,19 +583,19 @@ if [ "$1" != "being-invoked" ]; then
               LOGGLY_ROLLBACK="true"
               ;;
           -f | --filename ) shift
-              
+
               LOGGLY_FILE_TO_MONITOR="${1%/}"
-              
+
               if [ -f "$LOGGLY_FILE_TO_MONITOR" ];then
-                
+
                 LOGGLY_FILE_TO_MONITOR=$(readlink -f "$1")
                 FILE_TO_MONITOR=$LOGGLY_FILE_TO_MONITOR
                 echo "File to monitor: $LOGGLY_FILE_TO_MONITOR"
-              
+
               elif [ -d "$LOGGLY_FILE_TO_MONITOR" ] || checkIfWildcardExist ; then
                 IS_DIRECTORY="true"
                 echo "Directory to monitor: $LOGGLY_FILE_TO_MONITOR"
-                
+
               else
                 echo "ERROR: Cannot access $LOGGLY_FILE_TO_MONITOR: No such file or directory"
                 exit 1
@@ -612,6 +615,9 @@ if [ "$1" != "being-invoked" ]; then
               ;;
           -s | --suppress )
               SUPPRESS_PROMPT="true"
+              ;;
+          -v | --verify )
+              VERIFY_LOG_SENT="true"
               ;;
           -h | --help)
               usage
